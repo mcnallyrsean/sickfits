@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Mutation } from 'react-apollo';
+import styled from 'styled-components';
 import Router from 'next/router';
 import gql from 'graphql-tag';
 import Form from './styles/Form';
@@ -26,13 +27,24 @@ const CREATE_ITEM_MUTATION = gql`
   }
 `;
 
+const SubmitButton = styled.button`
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+  opacity: 1;
+  &:disabled {
+    opacity: 0.25;
+    cursor: initial;
+  }
+`;
+
 class CreateItem extends Component {
   state = {
     title: '',
     description: '',
     image: '',
     largeImage: '',
-    price: 0
+    price: 0,
+    imageUploaded: false
   };
 
   handleChange = e => {
@@ -40,6 +52,29 @@ class CreateItem extends Component {
     const val = type === 'Number' ? parseFloat(value) : value;
     this.setState({
       [name]: val
+    });
+  };
+
+  uploadFile = async e => {
+    console.log('uploading file');
+    const files = e.target.files;
+    const data = new FormData();
+    data.append('file', files[0]);
+    data.append('upload_preset', 'sickfits');
+
+    const res = await fetch(
+      'https://api.cloudinary.com/v1_1/djxkrfog7/image/upload',
+      {
+        method: 'POST',
+        body: data
+      }
+    );
+    const file = await res.json();
+    console.log(file);
+    this.setState({
+      image: file.secure_url,
+      largeImage: file.eager[0].secure_url,
+      imageUploaded: true
     });
   };
 
@@ -51,7 +86,6 @@ class CreateItem extends Component {
             onSubmit={async e => {
               // stop form from submitting
               e.preventDefault();
-              // call the mutation
               const res = await createItem();
               // bring them to newly created item show page
               Router.push({
@@ -62,6 +96,20 @@ class CreateItem extends Component {
           >
             <Error error={error} />
             <fieldset disabled={loading} aria-busy={loading}>
+              <label htmlFor="file">
+                File
+                <input
+                  onChange={this.uploadFile}
+                  type="file"
+                  id="file"
+                  name="file"
+                  placeholder="Upload an Image"
+                  required
+                />
+                {this.state.image && (
+                  <img width="200" src={this.state.image} alt="Image preview" />
+                )}
+              </label>
               <label htmlFor="title">
                 Title
                 <input
@@ -97,7 +145,12 @@ class CreateItem extends Component {
                   required
                 />
               </label>
-              <button type="submit">Submit</button>
+              <SubmitButton
+                disabled={this.state.imageUploaded === false}
+                type="submit"
+              >
+                Submit
+              </SubmitButton>
             </fieldset>
           </Form>
         )}
